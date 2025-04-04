@@ -1,0 +1,17 @@
+name: Deploy to Test Environment
+
+on:
+  pull_request:
+    branches: test
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  call-common-pipeline:
+    uses: ./.github/workflows/common_pipeline.yml
+    secrets: inherit
+    with:
+      environment: "test"
+      port: "3001"

@@ -1,0 +1,17 @@
+name: Deploy to Production Environment
+
+on:
+  pull_request:
+    branches: main
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  call-common-pipeline:
+    uses: ./.github/workflows/common_pipeline.yml
+    secrets: inherit
+    with:
+      environment: "production"
+      port: "3001"

@@ -1,0 +1,13 @@
+name: Deploy to Development Environment
+
+on:
+  push:
+    branches: develop
+
+jobs:
+  call-common-pipeline:
+    uses: ./.github/workflows/common_pipeline.yml
+    secrets: inherit
+    with:
+      environment: "development"
+      port: "3000"
