@@ -93,10 +93,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: docker-image
+          path: /tmp
           
       - name: Load Docker image
         run: |
-          docker load -i image.tar
+          docker load -i /tmp/image.tar
           
       - name: Login to Docker Hub
         uses: docker/login-action@v2
@@ -104,15 +105,18 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
           
-      - name: Push to Docker Hub
+      - name: Push Docker image
         run: |
-          echo "Pushing image: ${{ needs.build.outputs.image_name }}"
-          docker push ${{ needs.build.outputs.image_name }}
+          # 1. First push - versioned tag (immutable)
+          VERSIONED_IMAGE="${{ needs.build.outputs.full_image_tag }}"
+          echo "Pushing versioned image: ${VERSIONED_IMAGE}"
+          docker push "${VERSIONED_IMAGE}"
           
-          # Push environment-specific latest tag
-          LATEST_TAG="${{ env.DOCKER_REGISTRY }}/${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.APP_NAME }}:latest-${{ inputs.environment }}"
-          docker tag ${{ needs.build.outputs.image_name }} ${LATEST_TAG}
-          docker push ${LATEST_TAG}
+          # 2. Second push - environment-specific 'latest' tag (mutable)
+          ENV_LATEST_TAG="${{ env.DOCKER_REGISTRY }}/${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.APP_NAME }}:latest-${{ inputs.environment }}"
+          docker tag "${VERSIONED_IMAGE}" "${ENV_LATEST_TAG}"
+          echo "Pushing environment latest: ${ENV_LATEST_TAG}"
+          docker push "${ENV_LATEST_TAG}"
 
   deploy:
     needs: push
