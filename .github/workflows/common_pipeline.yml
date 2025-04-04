@@ -88,7 +88,7 @@ jobs:
   #         vuln-type: ${{ env.TRIVY_VULN_TYPE }}
 
   push:
-    needs: [build]
+    needs: [setup, build]
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
@@ -112,7 +112,7 @@ jobs:
       - name: Push Docker image
         run: |
 
-          FULL_IMAGE_TAG="${{ needs.build.outputs.full_image_tag }}"
+          FULL_IMAGE_TAG="${{ needs.setup.outputs.full_image_tag }}"
           # Verify image exists
           if ! docker inspect "${FULL_IMAGE_TAG}" >/dev/null 2>&1; then
             echo "::error::Image not found in local registry: ${FULL_IMAGE_TAG}"
@@ -122,10 +122,9 @@ jobs:
           fi
 
           # Push versioned tag
-          VERSIONED_IMAGE="${{ needs.build.outputs.full_image_tag }}"
-          echo "Pushing versioned image: ${{ needs.build.outputs.full_image_tag }}"
+          VERSIONED_IMAGE="${{ needs.setup.outputs.full_image_tag }}"
           echo "Pushing versioned image: ${VERSIONED_IMAGE}"
-          docker push "${{ needs.build.outputs.full_image_tag }}"
+          docker push "${VERSIONED_IMAGE}"
           
           # Push environment-specific latest tag
           ENV_LATEST_TAG="${{ env.DOCKER_REGISTRY }}/${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.APP_NAME }}:latest-${{ github.event.inputs.environment }}"
