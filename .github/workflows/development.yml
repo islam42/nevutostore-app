@@ -2,7 +2,9 @@ name: Deploy to Development Environment
 
 on:
   push:
-    branches: develop
+    branches:
+      - develop
+      - feature/add_github_actions_for_digitalocean
 
 jobs:
   call-common-pipeline:
