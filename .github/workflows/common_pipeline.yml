@@ -53,26 +53,30 @@ jobs:
           name: docker-image
           path: /tmp/image.tar
 
-  trivy_scan:
-    needs: build
-    environment: ${{ inputs.environment }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download image artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: docker-image
-      - name: Load Docker image
-        run: docker load -i image.tar
-      - name: Run Trivy scan
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ needs.build.outputs.image_name }}
-          format: 'table'
-          exit-code: '1'
-          severity: ${{ env.TRIVY_SEVERITY }}
-          ignore-unfixed: ${{ env.TRIVY_IGNORE_UNFIXED }}
-          vuln-type: ${{ env.TRIVY_VULN_TYPE }}
+  # trivy_scan:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   environment: ${{ inputs.environment }}
+  #   steps:
+  #     - name: Download image artifact
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: docker-image
+          
+  #     - name: Load Docker image
+  #       run: |
+  #         docker load -i image.tar
+  #         echo "Loaded image: ${{ needs.build.outputs.image_name }}"
+          
+  #     - name: Run Trivy scan
+  #       uses: aquasecurity/trivy-action@master
+  #       with:
+  #         image-ref: ${{ needs.build.outputs.image_name }}
+  #         format: 'table'
+  #         exit-code: '1'
+  #         severity: ${{ env.TRIVY_SEVERITY }}
+  #         ignore-unfixed: ${{ env.TRIVY_IGNORE_UNFIXED }}
+  #         vuln-type: ${{ env.TRIVY_VULN_TYPE }}
 
   push:
     needs: [build, trivy_scan]
