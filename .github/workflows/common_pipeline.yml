@@ -112,6 +112,12 @@ jobs:
       - name: Push Docker image
         run: |
 
+          # Verify image exists
+          if ! docker inspect "${{ needs.build.outputs.full_image_tag }}" >/dev/null 2>&1; then
+            echo "::error::Image not found: ${{ needs.build.outputs.full_image_tag }}"
+            exit 1
+          fi
+
           # Push versioned tag
           VERSIONED_IMAGE="${{ needs.build.outputs.full_image_tag }}"
           echo "Pushing versioned image: ${{ needs.build.outputs.full_image_tag }}"
