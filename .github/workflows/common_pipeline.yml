@@ -79,7 +79,7 @@ jobs:
   #         vuln-type: ${{ env.TRIVY_VULN_TYPE }}
 
   push:
-    needs: [build, trivy_scan]
+    needs: [build]
     runs-on: ubuntu-latest
     steps:
       - name: Download image artifact
