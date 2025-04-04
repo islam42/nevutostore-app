@@ -112,7 +112,8 @@ jobs:
       - name: Push Docker image
         run: |
 
-          FULL_IMAGE_TAG="${{ needs.setup.outputs.full_image_tag }}"
+          FULL_IMAGE_TAG="${{ needs.setup.outputs.image_tag }}"
+          echo "image tag: ${FULL_IMAGE_TAG}"
           # Verify image exists
           if ! docker inspect "${FULL_IMAGE_TAG}" >/dev/null 2>&1; then
             echo "::error::Image not found in local registry: ${FULL_IMAGE_TAG}"
