@@ -112,7 +112,7 @@ jobs:
       - name: Push Docker image
         run: |
 
-          FULL_IMAGE_TAG="${{ needs.setup.outputs.image_tag }}"
+          FULL_IMAGE_TAG="${{ needs.build.outputs.full_image_tag }}"
           echo "image tag: ${FULL_IMAGE_TAG}"
           # Verify image exists
           if ! docker inspect "${FULL_IMAGE_TAG}" >/dev/null 2>&1; then
@@ -123,7 +123,7 @@ jobs:
           fi
 
           # Push versioned tag
-          VERSIONED_IMAGE="${{ needs.setup.outputs.full_image_tag }}"
+          VERSIONED_IMAGE="${{ needs.build.outputs.full_image_tag }}"
           echo "Pushing versioned image: ${VERSIONED_IMAGE}"
           docker push "${VERSIONED_IMAGE}"
           
