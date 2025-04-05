@@ -47,6 +47,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          push: false
           tags: ${{ steps.set_ref.outputs.image_ref }}
           outputs: type=docker,dest=/tmp/image.tar
           
