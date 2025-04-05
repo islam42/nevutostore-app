@@ -43,7 +43,6 @@ jobs:
         run: |
           FULL_TAG="${{ env.DOCKER_REGISTRY }}/${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.APP_NAME }}:${{ needs.setup.outputs.image_tag }}"
           echo "full_image_tag=${FULL_TAG}" >> $GITHUB_OUTPUT
-          echo "Building image: ${FULL_TAG}"
           
       - name: Build Docker image
         uses: docker/build-push-action@v6
