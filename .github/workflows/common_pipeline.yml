@@ -139,7 +139,7 @@ jobs:
         
       - name: Push to registry
         run: |
-          FULL_REF="${{ needs.build.outputs.image_name }}"
+          FULL_REF="${{ needs.build.outputs.full_image_tag }}"
           
           # Verify image exists
           if ! docker image inspect "${FULL_REF}" >/dev/null; then
