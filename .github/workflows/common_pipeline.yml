@@ -44,6 +44,12 @@ jobs:
           FULL_TAG="${{ env.DOCKER_REGISTRY }}/${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.APP_NAME }}:${{ needs.setup.outputs.image_tag }}"
           echo "full_image_tag=${FULL_TAG}" >> $GITHUB_OUTPUT
           
+      # REQUIRED: Explicit export step
+      - name: Export job output
+        id: export_output
+        run: |
+          echo "full_image_tag=${{ steps.set_outputs.outputs.full_image_tag }}" >> $GITHUB_OUTPUT
+
       - name: Build Docker image
         uses: docker/build-push-action@v6
         with:
