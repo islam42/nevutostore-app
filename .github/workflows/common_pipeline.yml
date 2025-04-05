@@ -101,9 +101,9 @@ jobs:
       - name: Set image outputs
         id: set_outputs
         run: |
+          REF="${{ env.DOCKER_REGISTRY }}/${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.APP_NAME }}:$(date +%Y%m%d)-$(git rev-parse --short HEAD)"
           echo "image_ref=hello" >> "$GITHUB_OUTPUT"
-        #  REF="${{ env.DOCKER_REGISTRY }}/${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.APP_NAME }}:$(date +%Y%m%d)-$(git rev-parse --short HEAD)"
-        # echo "image_ref=${REF}" >> "$GITHUB_OUTPUT"
+         # echo "image_ref=${REF}" >> "$GITHUB_OUTPUT"
 
       # - name: Build Docker image
       #   uses: docker/build-push-action@v6
