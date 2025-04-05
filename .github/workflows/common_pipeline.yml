@@ -102,39 +102,38 @@ jobs:
         id: set_outputs
         run: |
           tag="${{ env.DOCKER_REGISTRY }}/${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.APP_NAME }}:$(date +%Y%m%d)-$(git rev-parse --short HEAD)"
-          echo ${tag}
-          echo "image_ref=${{ env.DOCKER_REGISTRY }}/${{ env.APP_NAME }}:$(date +%Y%m%d)-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "image_ref=${tag}" >> "$GITHUB_OUTPUT"
 
-      # - name: Build Docker image
-      #   uses: docker/build-push-action@v6
-      #   with:
-      #     context: .
-      #     push: false
-      #     tags: ${{ steps.set_outputs.outputs.image_ref }}
-      #     outputs: type=docker,dest=/tmp/image.tar
-      #     cache-from: type=gha
-      #     cache-to: type=gha,mode=max
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: ${{ steps.set_outputs.outputs.image_ref }}
+          outputs: type=docker,dest=/tmp/image.tar
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      # - name: Save image artifact
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: docker-image
-      #     path: /tmp/image.tar
-      #     retention-days: 1
+      - name: Save image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp/image.tar
+          retention-days: 1
 
   push:
     needs: build
     environment: ${{ inputs.environment }}
     runs-on: ubuntu-latest
     steps:
-      # - name: Load image
-      #   uses: actions/download-artifact@v4
-      #   with:
-      #     name: docker-image
-      #     path: /tmp
+      - name: Load image
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp
           
-      # - name: Import image
-      #   run: docker load -i /tmp/image.tar
+      - name: Import image
+        run: docker load -i /tmp/image.tar
         
       - name: Push to registry
         run: |
