@@ -103,14 +103,14 @@ jobs:
         id: set_outputs
         run: |
           REF="${{ env.DOCKER_REGISTRY }}/${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.APP_NAME }}:$(date +%Y%m%d)-$(git rev-parse --short HEAD)"
-          echo "image_ref=${REF}" >> $GITHUB_OUTPUT
+          echo "image_ref=${REF}"
 
       - name: Build Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
           push: false
-          tags: ${{ steps.set_outputs.outputs.image_ref }}
+          #tags: ${{ steps.set_outputs.outputs.image_ref }}
           outputs: type=docker,dest=/tmp/image.tar
           cache-from: type=gha
           cache-to: type=gha,mode=max
