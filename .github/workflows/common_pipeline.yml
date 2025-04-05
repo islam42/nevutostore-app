@@ -103,7 +103,7 @@ jobs:
         run: |
           tag="${{ env.DOCKER_REGISTRY }}/${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.APP_NAME }}:$(date +%Y%m%d)-$(git rev-parse --short HEAD)"
           echo ${tag}
-          echo "image_ref=${tag}" >> "$GITHUB_OUTPUT"
+          echo "image_ref=${{ env.DOCKER_REGISTRY }}/${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.APP_NAME }}:$(date +%Y%m%d)-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
       # - name: Build Docker image
       #   uses: docker/build-push-action@v6
