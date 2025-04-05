@@ -17,58 +17,144 @@ env:
   TRIVY_VULN_TYPE: "os,library"
 
 jobs:
-  setup:
-    runs-on: ubuntu-latest
-    outputs:
-      image_tag: ${{ steps.tag.outputs.tag }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Generate tag
-        id: tag
-        run: |
-          echo "tag=$(date +%Y%m%d)-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+  # setup:
+  #   runs-on: ubuntu-latest
+  #   outputs:
+  #     image_tag: ${{ steps.tag.outputs.tag }}
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Generate tag
+  #       id: tag
+  #       run: |
+  #         echo "tag=$(date +%Y%m%d)-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
   build:
-    needs: setup
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     outputs:
-      full_image_tag: ${{ steps.set_outputs.outputs.full_image_tag }}
+      image_ref: ${{ steps.set_ref.outputs.image_ref }}
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
       
-      - name: Set image outputs
-        id: set_outputs
+      - name: Set image reference
+        id: set_ref
         run: |
-          FULL_TAG="${{ env.DOCKER_REGISTRY }}/${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.APP_NAME }}:${{ needs.setup.outputs.image_tag }}"
-          echo "full_image_tag=${FULL_TAG}" >> $GITHUB_OUTPUT
+          REF="docker.io/${{ secrets.DOCKER_HUB_USERNAME }}/nextjs-ts-app:$(date +%Y%m%d)-$(git rev-parse --short HEAD)"
+          echo "image_ref=${REF}" >> $GITHUB_OUTPUT
+          echo "Image reference: ${REF}"
           
-      # REQUIRED: Explicit export step
-      - name: Export job output
-        id: export_output
-        run: |
-          echo "full_image_tag=${{ steps.set_outputs.outputs.full_image_tag }}" >> $GITHUB_OUTPUT
-
-      - name: Build Docker image
+      - name: Build and export image
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: false
-          tags: ${{ steps.set_outputs.outputs.full_image_tag }}
+          tags: ${{ steps.set_ref.outputs.image_ref }}
           outputs: type=docker,dest=/tmp/image.tar
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Save image artifact
+          
+      - name: Save artifact
         uses: actions/upload-artifact@v4
         with:
           name: docker-image
           path: /tmp/image.tar
-          retention-days: 1
 
-  # trivy_scan:
-  #   needs: build
+  push:
+    needs: build
+    environment: ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Load image
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp
+          
+      - name: Import image
+        run: docker load -i /tmp/image.tar
+        
+      - name: Push to registry
+        run: |
+          FULL_REF="${{ needs.build.outputs.image_ref }}"
+          
+          # Verify image exists
+          if ! docker image inspect "${FULL_REF}" >/dev/null; then
+            echo "::error::Image not found: ${FULL_REF}"
+            docker images
+            exit 1
+          fi
+          
+          echo "Pushing: ${FULL_REF}"
+          docker push "${FULL_REF}"
+          
+          # # Optional: Push additional tags
+          # LATEST_REF="${FULL_REF%%:*}:latest"
+          # docker tag "${FULL_REF}" "${LATEST_REF}"
+          # docker push "${LATEST_REF}"
+
+  # build:
+  #   needs: setup
+  #   runs-on: ubuntu-latest
+  #   environment: ${{ inputs.environment }}
+  #   outputs:
+  #     full_image_tag: ${{ steps.set_outputs.outputs.full_image_tag }}
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: docker/setup-buildx-action@v3
+      
+  #     - name: Set image outputs
+  #       id: set_outputs
+  #       run: |
+  #         FULL_TAG="${{ env.DOCKER_REGISTRY }}/${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.APP_NAME }}:${{ needs.setup.outputs.image_tag }}"
+  #         echo "full_image_tag=${FULL_TAG}" >> $GITHUB_OUTPUT
+          
+  #     # REQUIRED: Explicit export step
+  #     - name: Export job output
+  #       id: export_output
+  #       run: |
+  #         echo "full_image_tag=${{ steps.set_outputs.outputs.full_image_tag }}" >> $GITHUB_OUTPUT
+
+  #     - name: Build Docker image
+  #       uses: docker/build-push-action@v6
+  #       with:
+  #         context: .
+  #         push: false
+  #         tags: ${{ steps.set_outputs.outputs.full_image_tag }}
+  #         outputs: type=docker,dest=/tmp/image.tar
+  #         cache-from: type=gha
+  #         cache-to: type=gha,mode=max
+
+  #     - name: Save image artifact
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: docker-image
+  #         path: /tmp/image.tar
+  #         retention-days: 1
+
+  # # trivy_scan:
+  # #   needs: build
+  # #   runs-on: ubuntu-latest
+  # #   environment: ${{ inputs.environment }}
+  # #   steps:
+  # #     - name: Download image artifact
+  # #       uses: actions/download-artifact@v4
+  # #       with:
+  # #         name: docker-image
+          
+  # #     - name: Load Docker image
+  # #       run: |
+  # #         docker load -i image.tar
+  # #         echo "Loaded image: ${{ needs.build.outputs.image_name }}"
+          
+  # #     - name: Run Trivy scan
+  # #       uses: aquasecurity/trivy-action@master
+  # #       with:
+  # #         image-ref: ${{ needs.build.outputs.image_name }}
+  # #         format: 'table'
+  # #         exit-code: '1'
+  # #         severity: ${{ env.TRIVY_SEVERITY }}
+  # #         ignore-unfixed: ${{ env.TRIVY_IGNORE_UNFIXED }}
+  # #         vuln-type: ${{ env.TRIVY_VULN_TYPE }}
+
+  # push:
+  #   needs: [setup, build]
   #   runs-on: ubuntu-latest
   #   environment: ${{ inputs.environment }}
   #   steps:
@@ -76,67 +162,42 @@ jobs:
   #       uses: actions/download-artifact@v4
   #       with:
   #         name: docker-image
+  #         path: /tmp
           
   #     - name: Load Docker image
   #       run: |
-  #         docker load -i image.tar
-  #         echo "Loaded image: ${{ needs.build.outputs.image_name }}"
+  #         docker load -i /tmp/image.tar
+  #         echo "Loaded image: ${{ needs.build.outputs.full_image_tag }}"
           
-  #     - name: Run Trivy scan
-  #       uses: aquasecurity/trivy-action@master
+  #     - name: Login to Docker Hub
+  #       uses: docker/login-action@v3
   #       with:
-  #         image-ref: ${{ needs.build.outputs.image_name }}
-  #         format: 'table'
-  #         exit-code: '1'
-  #         severity: ${{ env.TRIVY_SEVERITY }}
-  #         ignore-unfixed: ${{ env.TRIVY_IGNORE_UNFIXED }}
-  #         vuln-type: ${{ env.TRIVY_VULN_TYPE }}
+  #         username: ${{ secrets.DOCKER_HUB_USERNAME }}
+  #         password: ${{ secrets.DOCKER_HUB_TOKEN }}
+          
+  #     - name: Push Docker image
+  #       run: |
 
-  push:
-    needs: [setup, build]
-    runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
-    steps:
-      - name: Download image artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: docker-image
-          path: /tmp
-          
-      - name: Load Docker image
-        run: |
-          docker load -i /tmp/image.tar
-          echo "Loaded image: ${{ needs.build.outputs.full_image_tag }}"
-          
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
-          
-      - name: Push Docker image
-        run: |
+  #         FULL_IMAGE_TAG="${{ needs.build.outputs.full_image_tag }}"
+  #         echo "image tag: ${FULL_IMAGE_TAG}"
+  #         # Verify image exists
+  #         if ! docker inspect "${FULL_IMAGE_TAG}" >/dev/null 2>&1; then
+  #           echo "::error::Image not found in local registry: ${FULL_IMAGE_TAG}"
+  #           echo "Available images:"
+  #           docker images
+  #           exit 1
+  #         fi
 
-          FULL_IMAGE_TAG="${{ needs.build.outputs.full_image_tag }}"
-          echo "image tag: ${FULL_IMAGE_TAG}"
-          # Verify image exists
-          if ! docker inspect "${FULL_IMAGE_TAG}" >/dev/null 2>&1; then
-            echo "::error::Image not found in local registry: ${FULL_IMAGE_TAG}"
-            echo "Available images:"
-            docker images
-            exit 1
-          fi
-
-          # Push versioned tag
-          VERSIONED_IMAGE="${{ needs.build.outputs.full_image_tag }}"
-          echo "Pushing versioned image: ${VERSIONED_IMAGE}"
-          docker push "${VERSIONED_IMAGE}"
+  #         # Push versioned tag
+  #         VERSIONED_IMAGE="${{ needs.build.outputs.full_image_tag }}"
+  #         echo "Pushing versioned image: ${VERSIONED_IMAGE}"
+  #         docker push "${VERSIONED_IMAGE}"
           
-          # Push environment-specific latest tag
-          ENV_LATEST_TAG="${{ env.DOCKER_REGISTRY }}/${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.APP_NAME }}:latest-${{ github.event.inputs.environment }}"
-          docker tag "${VERSIONED_IMAGE}" "${ENV_LATEST_TAG}"
-          echo "Pushing environment latest: ${ENV_LATEST_TAG}"
-          docker push "${ENV_LATEST_TAG}"
+  #         # Push environment-specific latest tag
+  #         ENV_LATEST_TAG="${{ env.DOCKER_REGISTRY }}/${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.APP_NAME }}:latest-${{ github.event.inputs.environment }}"
+  #         docker tag "${VERSIONED_IMAGE}" "${ENV_LATEST_TAG}"
+  #         echo "Pushing environment latest: ${ENV_LATEST_TAG}"
+  #         docker push "${ENV_LATEST_TAG}"
 
   deploy:
     needs: push
@@ -152,7 +213,7 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no \
               root@${{ secrets.DROPLET_IP }} \
-              "docker pull ${{ needs.build.outputs.image_name }} && \
+              "docker pull ${{ needs.build.outputs.image_ref }} && \
                docker stop ${{ env.APP_NAME }}-${{ inputs.environment }} || true && \
                docker rm ${{ env.APP_NAME }}-${{ inputs.environment }} || true && \
                docker run -d \
@@ -160,4 +221,4 @@ jobs:
                  -p ${{ inputs.port }}:3000 \
                  -e NODE_ENV=${{ inputs.environment }} \
                  --restart unless-stopped \
-                 ${{ needs.build.outputs.image_name }}"
+                 ${{ needs.build.outputs.image_ref }}"
