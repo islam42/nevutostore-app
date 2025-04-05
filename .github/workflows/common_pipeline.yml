@@ -138,7 +138,6 @@ jobs:
         
       - name: Push to registry
         run: |
-          echo ${{ needs.build.outputs.full_image_tag }}
           FULL_REF="${{ needs.build.outputs.full_image_tag }}"
           
           # Verify image exists
