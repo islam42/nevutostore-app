@@ -140,13 +140,6 @@ jobs:
         run: |
           FULL_REF="${{ needs.build.outputs.full_image_tag }}"
           
-          # Verify image exists
-          if ! docker image inspect "${FULL_REF}" >/dev/null; then
-            echo "::error::Image not found: ${FULL_REF}"
-            docker images
-            exit 1
-          fi
-          
           echo "Pushing: ${FULL_REF}"
           docker push "${FULL_REF}"
 
