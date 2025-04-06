@@ -17,3 +17,4 @@ jobs:
     with:
       environment: "development"
       port: "3000"
+      runner: ubuntu-latest

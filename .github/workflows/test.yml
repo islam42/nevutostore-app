@@ -15,3 +15,4 @@ jobs:
     with:
       environment: "test"
       port: "3001"
+      runner: ubuntu-latest

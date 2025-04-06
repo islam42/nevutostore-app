@@ -15,3 +15,4 @@ jobs:
     with:
       environment: "production"
       port: "3001"
+      runner: ubuntu-latest
