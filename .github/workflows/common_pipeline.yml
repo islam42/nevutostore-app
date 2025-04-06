@@ -102,7 +102,7 @@ jobs:
       - name: Set image outputs
         id: set_outputs
         run: |
-          tag="${{ vars.DOCKER_HUB_USERNAME }}/${{ env.APP_NAME }}:$(date +%Y%m%d)-$(git rev-parse --short HEAD)"
+          tag="${{ env.DOCKER_REGISTRY }}/${{ vars.DOCKER_HUB_USERNAME }}/${{ env.APP_NAME }}:$(date +%Y%m%d)-$(git rev-parse --short HEAD)"
           echo "image_ref=${tag}" >> "$GITHUB_OUTPUT"
 
       - name: Build Docker image
