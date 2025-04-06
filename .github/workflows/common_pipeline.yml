@@ -88,7 +88,7 @@ jobs:
           sarif_file: 'trivy-results.sarif'
 
   push:
-    needs: build
+    needs: [build, trivy_scan]
     environment: ${{ inputs.environment }}
     runs-on: ${{ inputs.runner }}
     steps:
