@@ -221,7 +221,7 @@ jobs:
   #         docker push "${ENV_LATEST_TAG}"
 
   deploy:
-    needs: push
+    needs: [push, build]
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
