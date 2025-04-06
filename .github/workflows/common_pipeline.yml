@@ -234,7 +234,7 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no \
               root@${{ secrets.DROPLET_IP }} \
-              "docker pull ${{ needs.build.outputs.image_ref }} && \
+              "docker pull ${{ needs.build.outputs.full_image_tag }} && \
                docker stop ${{ env.APP_NAME }}-${{ inputs.environment }} || true && \
                docker rm ${{ env.APP_NAME }}-${{ inputs.environment }} || true && \
                docker run -d \
@@ -242,4 +242,4 @@ jobs:
                  -p ${{ inputs.port }}:3000 \
                  -e NODE_ENV=${{ inputs.environment }} \
                  --restart unless-stopped \
-                 ${{ needs.build.outputs.image_ref }}"
+                 ${{ needs.build.outputs.full_image_tag }}"
