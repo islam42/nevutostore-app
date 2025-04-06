@@ -17,80 +17,8 @@ env:
   TRIVY_VULN_TYPE: "os,library"
 
 jobs:
-  # setup:
-  #   runs-on: ubuntu-latest
-  #   outputs:
-  #     image_tag: ${{ steps.tag.outputs.tag }}
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Generate tag
-  #       id: tag
-  #       run: |
-  #         echo "tag=$(date +%Y%m%d)-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
-  # build:
-  #   runs-on: ubuntu-latest
-  #   environment: ${{ inputs.environment }}
-  #   outputs:
-  #     image_ref: ${{ steps.set_ref.outputs.image_ref }}
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Set image reference
-  #       id: set_ref
-  #       run: |
-  #         REF="${{ env.DOCKER_REGISTRY }}/${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.APP_NAME }}:$(date +%Y%m%d)-$(git rev-parse --short HEAD)"
-  #         echo "image_ref=${REF}" >> $GITHUB_OUTPUT
-  #         echo "Image reference: ${REF}"
-          
-  #     - name: Build and export image
-  #       uses: docker/build-push-action@v6
-  #       with:
-  #         context: .
-  #         push: false
-  #         tags: ${{ steps.set_ref.outputs.image_ref }}
-  #         outputs: type=docker,dest=/tmp/image.tar
-          
-  #     - name: Save artifact
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: docker-image
-  #         path: /tmp/image.tar
-
-  # push:
-  #   needs: build
-  #   environment: ${{ inputs.environment }}
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Load image
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: docker-image
-  #         path: /tmp
-          
-  #     - name: Import image
-  #       run: docker load -i /tmp/image.tar
-        
-  #     - name: Push to registry
-  #       run: |
-  #         FULL_REF="${{ needs.build.outputs.image_ref }}"
-          
-  #         # Verify image exists
-  #         if ! docker image inspect "${FULL_REF}" >/dev/null; then
-  #           echo "::error::Image not found: ${FULL_REF}"
-  #           docker images
-  #           exit 1
-  #         fi
-          
-  #         echo "Pushing: ${FULL_REF}"
-  #         docker push "${FULL_REF}"
-          
-  #         # # Optional: Push additional tags
-  #         # LATEST_REF="${FULL_REF%%:*}:latest"
-  #         # docker tag "${FULL_REF}" "${LATEST_REF}"
-  #         # docker push "${LATEST_REF}"
 
   build:
-    #needs: setup
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     outputs:
@@ -122,124 +50,98 @@ jobs:
           path: /tmp/image.tar
           retention-days: 1
 
-  push:
+  trivy_scan:
+    permissions:
+      contents: read # for actions/checkout to fetch code
+    security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions:
     needs: build
-    environment: ${{ inputs.environment }}
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
     steps:
-      - name: Load image
+      - name: Download image artifact
         uses: actions/download-artifact@v4
         with:
           name: docker-image
-          path: /tmp
           
-      - name: Import image
-        run: docker load -i /tmp/image.tar
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ vars.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
-        
-      - name: Push to registry
+      - name: Load Docker image
         run: |
-          FULL_REF="${{ needs.build.outputs.full_image_tag }}"
+          docker load -i image.tar
+          echo "Loaded image: ${{ needs.build.outputs.full_image_tag }}"
           
-          echo "Pushing: ${FULL_REF}"
-          docker push "${FULL_REF}"
+      - name: Run Trivy scan
+        uses: aquasecurity/trivy-action@7b7aa264d83dc58691451798b4d117d53d21edfe
+        with:
+          image-ref: ${{ needs.build.outputs.full_image_tag }}
+          format: 'template'
+          template: '@/contrib/sarif.tpl'
+          output: 'trivy-results.sarif'
+          severity: ${{ env.TRIVY_SEVERITY }}
+          ignore-unfixed: ${{ env.TRIVY_IGNORE_UNFIXED }}
+          vuln-type: ${{ env.TRIVY_VULN_TYPE }}
 
-  # # trivy_scan:
-  # #   needs: build
-  # #   runs-on: ubuntu-latest
-  # #   environment: ${{ inputs.environment }}
-  # #   steps:
-  # #     - name: Download image artifact
-  # #       uses: actions/download-artifact@v4
-  # #       with:
-  # #         name: docker-image
-          
-  # #     - name: Load Docker image
-  # #       run: |
-  # #         docker load -i image.tar
-  # #         echo "Loaded image: ${{ needs.build.outputs.image_name }}"
-          
-  # #     - name: Run Trivy scan
-  # #       uses: aquasecurity/trivy-action@master
-  # #       with:
-  # #         image-ref: ${{ needs.build.outputs.image_name }}
-  # #         format: 'table'
-  # #         exit-code: '1'
-  # #         severity: ${{ env.TRIVY_SEVERITY }}
-  # #         ignore-unfixed: ${{ env.TRIVY_IGNORE_UNFIXED }}
-  # #         vuln-type: ${{ env.TRIVY_VULN_TYPE }}
+        # uses: aquasecurity/trivy-action@master
+        # with:
+        #   image-ref: ${{ needs.build.outputs.image_name }}
+        #   format: 'table'
+        #   exit-code: '1'
+        #   severity: ${{ env.TRIVY_SEVERITY }}
+        #   ignore-unfixed: ${{ env.TRIVY_IGNORE_UNFIXED }}
+        #   vuln-type: ${{ env.TRIVY_VULN_TYPE }}
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
 
   # push:
-  #   needs: [setup, build]
-  #   runs-on: ubuntu-latest
+  #   needs: build
   #   environment: ${{ inputs.environment }}
+  #   runs-on: ubuntu-latest
   #   steps:
-  #     - name: Download image artifact
+  #     - name: Load image
   #       uses: actions/download-artifact@v4
   #       with:
   #         name: docker-image
   #         path: /tmp
           
-  #     - name: Load Docker image
-  #       run: |
-  #         docker load -i /tmp/image.tar
-  #         echo "Loaded image: ${{ needs.build.outputs.full_image_tag }}"
-          
+  #     - name: Import image
+  #       run: docker load -i /tmp/image.tar
+
   #     - name: Login to Docker Hub
   #       uses: docker/login-action@v3
   #       with:
-  #         username: ${{ secrets.DOCKER_HUB_USERNAME }}
+  #         username: ${{ vars.DOCKER_HUB_USERNAME }}
   #         password: ${{ secrets.DOCKER_HUB_TOKEN }}
-          
-  #     - name: Push Docker image
+        
+  #     - name: Push to registry
   #       run: |
-
-  #         FULL_IMAGE_TAG="${{ needs.build.outputs.full_image_tag }}"
-  #         echo "image tag: ${FULL_IMAGE_TAG}"
-  #         # Verify image exists
-  #         if ! docker inspect "${FULL_IMAGE_TAG}" >/dev/null 2>&1; then
-  #           echo "::error::Image not found in local registry: ${FULL_IMAGE_TAG}"
-  #           echo "Available images:"
-  #           docker images
-  #           exit 1
-  #         fi
-
-  #         # Push versioned tag
-  #         VERSIONED_IMAGE="${{ needs.build.outputs.full_image_tag }}"
-  #         echo "Pushing versioned image: ${VERSIONED_IMAGE}"
-  #         docker push "${VERSIONED_IMAGE}"
+  #         FULL_REF="${{ needs.build.outputs.full_image_tag }}"
           
-  #         # Push environment-specific latest tag
-  #         ENV_LATEST_TAG="${{ env.DOCKER_REGISTRY }}/${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.APP_NAME }}:latest-${{ github.event.inputs.environment }}"
-  #         docker tag "${VERSIONED_IMAGE}" "${ENV_LATEST_TAG}"
-  #         echo "Pushing environment latest: ${ENV_LATEST_TAG}"
-  #         docker push "${ENV_LATEST_TAG}"
+  #         echo "Pushing: ${FULL_REF}"
+  #         docker push "${FULL_REF}"
 
-  deploy:
-    needs: [push, build]
-    runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
-    steps:
-      - name: Install SSH Key
-        uses: shimataro/ssh-key-action@v2
-        with:
-          key: ${{ secrets.DROPLET_SSH_KEY }}
-          known_hosts: unnecessary
-      - name: Deploy to DigitalOcean
-        run: |
-          ssh -o StrictHostKeyChecking=no \
-              root@${{ secrets.DROPLET_IP }} \
-              "docker pull ${{ needs.build.outputs.full_image_tag }} && \
-               docker stop ${{ env.APP_NAME }}-${{ inputs.environment }} || true && \
-               docker rm ${{ env.APP_NAME }}-${{ inputs.environment }} || true && \
-               docker run -d \
-                 --name ${{ env.APP_NAME }}-${{ inputs.environment }} \
-                 -p ${{ inputs.port }}:3000 \
-                 -e NODE_ENV=${{ inputs.environment }} \
-                 --restart unless-stopped \
-                 ${{ needs.build.outputs.full_image_tag }}"
+
+  # deploy:
+  #   needs: [push, build]
+  #   runs-on: ubuntu-latest
+  #   environment: ${{ inputs.environment }}
+  #   steps:
+  #     - name: Install SSH Key
+  #       uses: shimataro/ssh-key-action@v2
+  #       with:
+  #         key: ${{ secrets.DROPLET_SSH_KEY }}
+  #         known_hosts: unnecessary
+  #     - name: Deploy to DigitalOcean
+  #       run: |
+  #         ssh -o StrictHostKeyChecking=no \
+  #             root@${{ secrets.DROPLET_IP }} \
+  #             "docker pull ${{ needs.build.outputs.full_image_tag }} && \
+  #              docker stop ${{ env.APP_NAME }}-${{ inputs.environment }} || true && \
+  #              docker rm ${{ env.APP_NAME }}-${{ inputs.environment }} || true && \
+  #              docker run -d \
+  #                --name ${{ env.APP_NAME }}-${{ inputs.environment }} \
+  #                -p ${{ inputs.port }}:3000 \
+  #                -e NODE_ENV=${{ inputs.environment }} \
+  #                --restart unless-stopped \
+  #                ${{ needs.build.outputs.full_image_tag }}"
